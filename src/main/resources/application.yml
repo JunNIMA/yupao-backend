@@ -1,14 +1,21 @@
 spring:
   application:
-    name: user-center-backend
+    name: yupao-backend
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/yupi
+    url: jdbc:mysql://localhost:3306/yupao?serverTimezone=Asia/Shanghai
     username: root
     password: 1234
   #session失效时间
   session:
-    time-to-live: 86400
+    timeout: 86400
+  #redis 配置
+  data:
+    redis:
+      port: 6379
+      host: localhost
+      database: 3
+      password: 123456
 server:
   port: 8080
   servlet:
@@ -16,9 +23,11 @@ server:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
+  #    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: isDelete # 全局逻辑删除字段名
       logic-delete-value: 1 # 逻辑已删除值
       logic-not-delete-value: 0 # 逻辑未删除值
+
 
