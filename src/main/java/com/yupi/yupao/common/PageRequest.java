@@ -16,7 +16,7 @@ public class PageRequest implements Serializable {
     /**
      * 页面大小
      */
-    protected int pagSize = 10;
+    protected int pageSize = 10;
 
     /**
      * 当前是第几页

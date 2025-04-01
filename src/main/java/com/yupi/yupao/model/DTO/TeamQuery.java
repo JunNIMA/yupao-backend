@@ -1,4 +1,4 @@
-package com.yupi.yupao.model.dto;
+package com.yupi.yupao.model.DTO;
 
 import com.yupi.yupao.common.PageRequest;
 import lombok.Data;
@@ -19,6 +19,11 @@ public class TeamQuery extends PageRequest {
      * id
      */
     private Long id;
+
+    /**
+     * 搜索关键词
+     */
+    private String searchText;
 
     /**
      * 队伍名称
