@@ -6,6 +6,7 @@ import com.yupi.yupao.common.BaseResponse;
 import com.yupi.yupao.common.ErrorCode;
 import com.yupi.yupao.common.ResultUtils;
 import com.yupi.yupao.exception.BusinessException;
+import com.yupi.yupao.model.VO.UserVO;
 import com.yupi.yupao.model.domain.User;
 import com.yupi.yupao.model.request.UserLoginRequest;
 import com.yupi.yupao.model.request.UserRegisterRequest;
@@ -135,12 +136,12 @@ public class UserController {
         return ResultUtils.success(userList);
     }
 
-    @GetMapping("/recommand")
+    @GetMapping("/recommend")
     public BaseResponse<Page<User>> recommendUsers(long pageSize,long pageNum,HttpServletRequest request){
         User loginUser = userService.getLoginUser(request);
-        //如果有缓存，直接读缓存
         String redisKey = String.format("yupao:user:recommand:%s",loginUser.getId());
-        ValueOperations valueOperations = redisTemplate.opsForValue();
+        ValueOperations<String,Object> valueOperations = redisTemplate.opsForValue();
+        //如果有缓存，直接读缓存
         Page<User> userPage = (Page<User>) valueOperations.get(redisKey);
         if(userPage != null){
             return ResultUtils.success(userPage);
@@ -150,7 +151,7 @@ public class UserController {
         userPage= userService.page(new Page<>(pageNum, pageSize),queryWrapper);
         //写缓存
         try {
-            valueOperations.set(redisKey, userPage,1, TimeUnit.MINUTES);
+            valueOperations.set(redisKey, userPage,30, TimeUnit.MINUTES);
         }catch (Exception e){
             log.error("redis set key error",e);
         }
@@ -180,6 +181,20 @@ public class UserController {
         return ResultUtils.success(b);
     }
 
+    /**
+     * 获取最匹配的用户
+     * @param num
+     * @param request
+     * @return
+     */
+    @GetMapping("/match")
+    public BaseResponse<List<User>> matchUsers(long num, HttpServletRequest request){
+        if(num <= 0 || num > 20){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User loginUser = userService.getLoginUser(request);
+        return ResultUtils.success(userService.matchUsers(num,loginUser));
+    }
 
 
 }

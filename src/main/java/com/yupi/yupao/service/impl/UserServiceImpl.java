@@ -1,5 +1,5 @@
 package com.yupi.yupao.service.impl;
-import java.util.Date;
+import java.util.*;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -8,18 +8,19 @@ import com.google.gson.reflect.TypeToken;
 import com.yupi.yupao.common.ErrorCode;
 import com.yupi.yupao.exception.BusinessException;
 import com.yupi.yupao.mapper.UserMapper;
+import com.yupi.yupao.model.VO.UserVO;
 import com.yupi.yupao.model.domain.User;
 import com.yupi.yupao.service.UserService;
+import com.yupi.yupao.utils.AlgorithmUtils;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.math3.util.Pair;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.DigestUtils;
 
-import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -234,6 +235,50 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User>
     @Override
     public boolean isAdmin(User loginUser){
         return loginUser != null && loginUser.getUserRole() == ADMIN_ROLE;
+    }
+
+    @Override
+    public List<User> matchUsers(long num, User loginUser) {
+        QueryWrapper<User> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("id","tags");
+        queryWrapper.isNotNull("tags");
+        List<User> userList = this.list(queryWrapper);
+        String tags = loginUser.getTags();
+        Gson gson = new Gson();
+        List<String> tagList = gson.fromJson(tags, new TypeToken<List<String>>() {}.getType());
+        //用户列表的下标 => 相似度
+        List<Pair<User,Long>> list = new ArrayList<>();
+        //依次计算所有用户和当前用户的相似度
+        for (int i = 0; i < userList.size(); i++) {
+            User user = userList.get(i);
+            String userTags = user.getTags();
+            // 无标签
+            if(StringUtils.isBlank(userTags) || user.getId().equals(loginUser.getId())){
+                continue;
+            }
+            List<String> userTagList = gson.fromJson(userTags, new TypeToken<List<String>>() {}.getType());
+            // 计算分数
+            long distance = AlgorithmUtils.listEditDistance(tagList, userTagList);
+            list.add(new Pair<>(user,distance));
+        }
+        // 按编辑距离由小到大排序
+        List<Pair<User, Long>> topUserPairList = list.stream()
+                .sorted((a, b) -> (int) (a.getValue() - b.getValue()))
+                .limit(num)
+                .collect(Collectors.toList());
+        List<Long> userIdList = topUserPairList.stream().map(pair->pair.getKey().getId()).collect(Collectors.toList());
+        QueryWrapper<User> userQueryWrapper = new QueryWrapper<>();
+        //in 查询无序
+        userQueryWrapper.in("id",userIdList);
+        Map<Long, List<User>> userIdUserListMap = this.list(userQueryWrapper)
+                .stream()
+                .map(this::getSafetyUser)
+                .collect(Collectors.groupingBy(User::getId));
+        List<User> finalUserList = new ArrayList<>();
+        for (Long userId : userIdList) {
+            finalUserList.add(userIdUserListMap.get(userId).get(0));
+        }
+        return finalUserList;
     }
 
     /**
